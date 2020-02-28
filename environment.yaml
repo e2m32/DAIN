@@ -1,4 +1,4 @@
-name: pytorch1.0.0
+name: dain_pytorch1.0.0
 channels:
   - pytorch
   - serge-sans-paille
@@ -102,5 +102,4 @@ dependencies:
     - separableconv-cuda==0.0.0
     - separableconvflow-cuda==0.0.0
     - torch==1.0.1.post2
-prefix: /home/wenbobao/anaconda3_new/envs/pytorch1.0.0
-
+prefix: ~/anaconda3/envs/dain_pytorch1.0.0

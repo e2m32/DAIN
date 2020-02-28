@@ -164,3 +164,9 @@ crashlytics.properties
 crashlytics-build.properties
 fabric.properties
 
+
+.DS_Store
+*.bak
+/video_run.avi
+test*
+temp*

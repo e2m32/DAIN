@@ -101,12 +101,56 @@ If you find the code and datasets useful in your research, please cite:
     }
 
 ### Requirements and Dependencies
-- Ubuntu (We test with Ubuntu = 16.04.5 LTS)
-- Python (We test with Python = 3.6.8 in Anaconda3 = 4.1.1)
-- Cuda & Cudnn (We test with Cuda = 9.0 and Cudnn = 7.0)
-- PyTorch (The customized depth-aware flow projection and other layers require ATen API in PyTorch = 1.0.0)
-- GCC (Compiling PyTorch 1.0.0 extension files (.c/.cu) requires gcc = 4.9.1 and nvcc = 9.0 compilers)
-- NVIDIA GPU (We use Titan X (Pascal) with compute = 6.1, but we support compute_50/52/60/61 devices, should you have devices with higher compute capability, please revise [this](https://github.com/baowenbo/DAIN/blob/master/my_package/DepthFlowProjection/setup.py))
+Ubuntu (We test with Ubuntu = 16.04.5 LTS)
+  - Install [ISO](http://old-releases.ubuntu.com/releases/16.04.5/ubuntu-16.04.5-server-amd64.iso)
+
+Python (We test with Python = 3.6.8 in Anaconda3 = 4.1.1)
+
+    $ mkdir ~/tmp
+    $ cd tmp
+    $ curl -O https://repo.continuum.io/archive/Anaconda3-4.1.1-Linux-x86_64.sh 
+    $ bash Anaconda3-4.1.1-Linux-x86_64.sh
+
+Cuda & Cudnn for Anaconda (We test with Cuda = 9.0 and Cudnn = 7.0) 
+
+    $ sudo dpkg -i cuda-repo-ubuntu1604_9.0.176-1_amd64.debwget http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64/cuda-repo-ubuntu1604_9.0.176-1_amd64.deb
+    $ wget http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64/cuda-repo-ubuntu1604_9.0.176-1_amd64.deb 
+    $ wget http://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1604/x86_64/libcudnn7_7.0.5.15-1+cuda9.0_amd64.deb 
+    $ wget http://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1604/x86_64/libcudnn7-dev_7.0.5.15-1+cuda9.0_amd64.deb 
+    $ wget http://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1604/x86_64/libnccl2_2.1.4-1+cuda9.0_amd64.deb 
+    $ wget http://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1604/x86_64/libnccl-dev_2.1.4-1+cuda9.0_amd64.deb
+    $ sudo dpkg -i cuda-repo-ubuntu1604_9.0.176-1_amd64.deb 
+    $ sudo dpkg -i libcudnn7_7.0.5.15-1+cuda9.0_amd64.deb 
+    $ sudo dpkg -i libcudnn7-dev_7.0.5.15-1+cuda9.0_amd64.deb 
+    $ sudo dpkg -i libnccl2_2.1.4-1+cuda9.0_amd64.deb 
+    $ sudo dpkg -i libnccl-dev_2.1.4-1+cuda9.0_amd64.deb 
+    $ sudo apt-get update
+    $ sudo apt-get install cuda=9.0.176-1
+    $ sudo apt-get install libcudnn7-dev
+    $ sudo apt-get install libnccl-dev
+    $ sudo reboot
+    $ sudo vi .bashrc
+
+Add at bottom of ~/.bashrc
+
+    $ export PATH=/usr/local/cuda-9.0/bin${PATH:+:${PATH}} 
+    $ export LD_LIBRARY_PATH=/usr/local/cuda-9.0/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
+
+PyTorch (The customized depth-aware flow projection and other layers require ATen API in PyTorch = 1.0.0)
+
+    $ conda install -c anaconda mkl
+    $ conda install pytorch==1.0.0 torchvision==0.2.1 cuda90 -c pytorch 
+
+GCC (Compiling PyTorch 1.0.0 extension files (.c/.cu) requires gcc = 4.9.1 and nvcc = 9.0 compilers)
+
+    $ sudo vi /etc/apt/sources.list
+    $ Add at bottom of sources.list:
+    $ deb http://cz.archive.ubuntu.com/ubuntu xenial main universe
+    $ deb http://cz.archive.ubuntu.com/ubuntu xenial main universe
+    $ sudo apt-get update
+    $ sudo apt-get install gcc-4.9 g++-4.9
+
+NVIDIA GPU (We use Titan X (Pascal) with compute = 6.1, but we support compute_50/52/60/61 devices, should you have devices with higher compute capability, please revise [this](https://github.com/baowenbo/DAIN/blob/master/my_package/DepthFlowProjection/setup.py))
 
 ### Installation
 Download repository:
@@ -117,6 +161,21 @@ Before building Pytorch extensions, be sure you have `pytorch >= 1.0.0`:
     
     $ python -c "import torch; print(torch.__version__)"
     
+### Set up anaconda environment
+
+    $ conda env create -f ~/DAIN/environment.yaml
+    $ echo ". ~/anaconda3/etc/profile.d/conda.sh" >> ~/.bashrc
+    $ echo "conda activate" >> ~/.bashrc
+    $ cd ~/
+Activate environment
+
+    $ conda activate dain_pytorch1.0.0
+
+or 
+
+    $ source activate dain_pytorch1.0.0
+
+
 Generate our PyTorch extensions:
     
     $ cd DAIN
@@ -150,19 +209,11 @@ and Middlebury dataset:
     $ unzip other-gt-interp.zip
     $ cd ..
 
-preinstallations:
-
-    $ cd PWCNet/correlation_package_pytorch1_0
-    $ sh build.sh
-    $ cd ../my_package
-    $ sh build.sh
-    $ cd ..
-
 We are good to go by:
 
     $ CUDA_VISIBLE_DEVICES=0 python demo_MiddleBury.py
 
-The interpolated results are under `MiddleBurySet/other-result-author/[random number]/`, where the `random number` is used to distinguish different runnings. 
+The interpolated results are under `MiddleBurySet/other-result-author/[random number]/`, where the `random number` is used to distinguish different runnings. The demo only interpolates one image per example.
 
 ### Downloading Results
 Our DAIN model achieves the state-of-the-art performance on the UCF101, Vimeo90K, and Middlebury ([*eval*](http://vision.middlebury.edu/flow/eval/results/results-n1.php) and *other*).

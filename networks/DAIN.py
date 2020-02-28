@@ -13,10 +13,11 @@ import Resblock
 import MegaDepth
 import time
 
+
 class DAIN(torch.nn.Module):
     def __init__(self,
-                 channel = 3,
-                 filter_size = 4,
+                 channel=3,
+                 filter_size=4,
                  timestep=0.5,
                  training=True):
 
@@ -27,11 +28,12 @@ class DAIN(torch.nn.Module):
         self.training = training
         self.timestep = timestep
         assert (timestep == 0.5) # TODO: or else the WeigtedFlowProjection should also be revised... Really Tedious work.
-        self.numFrames =int(1.0/timestep) - 1
+        self.numFrames = int(1.0/timestep) - 1
 
-        i=0
-        self.initScaleNets_filter,self.initScaleNets_filter1,self.initScaleNets_filter2 = \
-            self.get_MonoNet5(channel if i == 0 else channel + filter_size * filter_size, filter_size * filter_size, "filter")
+        i = 0
+        self.initScaleNets_filter, self.initScaleNets_filter1, self.initScaleNets_filter2 = \
+            self.get_MonoNet5(channel if i == 0
+                              else channel + filter_size * filter_size, filter_size * filter_size, "filter")
 
         self.ctxNet = S2D_models.__dict__['S2DF_3dense']()
         self.ctx_ch = 3 * 64 + 3
@@ -61,7 +63,7 @@ class DAIN(torch.nn.Module):
                 # n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
                 # m.weight.data.normal_(0, math.sqrt(2. / n))
                 # print(m)
-                count+=1
+                count += 1
                 # print(count)
                 # weight_init.xavier_uniform(m.weight.data)
                 nn.init.xavier_uniform_(m.weight.data)
@@ -77,9 +79,7 @@ class DAIN(torch.nn.Module):
             # else:
             #     print(m)
 
-
     def forward(self, input):
-
         """
         Parameters
         ----------
@@ -87,7 +87,7 @@ class DAIN(torch.nn.Module):
         -----------
         """
         losses = []
-        offsets= []
+        offsets = []
         filters = []
         occlusions = []
 
@@ -100,103 +100,118 @@ class DAIN(torch.nn.Module):
         '''
             STEP 1: sequeeze the input 
         '''
-        if self.training == True:
+        if self.training:
             assert input.size(0) == 3
-            input_0,input_1,input_2 = torch.squeeze(input,dim=0)
+            input_0, input_1, input_2 = torch.squeeze(input, dim=0)
         else:
             assert input.size(0) ==2
-            input_0,input_2 = torch.squeeze(input,dim=0)
-
+            input_0, input_2 = torch.squeeze(input, dim=0)
 
         #prepare the input data of current scale
         cur_input_0 = input_0
-        if self.training == True:
+        if self.training:
             cur_input_1 = input_1
-        cur_input_2 =  input_2
+        cur_input_2 = input_2
 
         '''
             STEP 3.2: concatenating the inputs.
         '''
         cur_offset_input = torch.cat((cur_input_0, cur_input_2), dim=1)
-        cur_filter_input = cur_offset_input # torch.cat((cur_input_0, cur_input_2), dim=1)
+        cur_filter_input = cur_offset_input  # torch.cat((cur_input_0, cur_input_2), dim=1)
 
         '''
             STEP 3.3: perform the estimation by the Three subpath Network 
         '''
-        time_offsets = [ kk * self.timestep for kk in range(1, 1+self.numFrames,1)]
+        time_offsets = [kk * self.timestep for kk in range(1, 1+self.numFrames, 1)]
 
         with torch.cuda.stream(s1):
-            temp  = self.depthNet(torch.cat((cur_filter_input[:, :3, ...],
-                                             cur_filter_input[:, 3:, ...]),dim=0))
+            temp = self.depthNet(torch.cat((cur_filter_input[:, :3, ...],
+                                            cur_filter_input[:, 3:, ...]),
+                                           dim=0))
             log_depth = [temp[:cur_filter_input.size(0)], temp[cur_filter_input.size(0):]]
 
-            cur_ctx_output = [
-                torch.cat((self.ctxNet(cur_filter_input[:, :3, ...]),
-                       log_depth[0].detach()), dim=1),
-                    torch.cat((self.ctxNet(cur_filter_input[:, 3:, ...]),
-                   log_depth[1].detach()), dim=1)
-                    ]
+            cur_ctx_output = \
+                [
+                  torch.cat(
+                             (self.ctxNet(cur_filter_input[:, :3, ...]),
+                              log_depth[0].detach()), dim=1
+                           ), torch.cat(
+                                         (self.ctxNet(cur_filter_input[:, 3:, ...]),
+                                          log_depth[1].detach()), dim=1)
+                ]
             temp = self.forward_singlePath(self.initScaleNets_filter, cur_filter_input, 'filter')
             cur_filter_output = [self.forward_singlePath(self.initScaleNets_filter1, temp, name=None),
                              self.forward_singlePath(self.initScaleNets_filter2, temp, name=None)]
-
 
             depth_inv = [1e-6 + 1 / torch.exp(d) for d in log_depth]
 
         with torch.cuda.stream(s2):
             for _ in range(1):
-                cur_offset_outputs = [
+                cur_offset_outputs = \
+                    [
                         self.forward_flownets(self.flownets, cur_offset_input, time_offsets=time_offsets),
-                        self.forward_flownets(self.flownets, torch.cat((cur_offset_input[:, 3:, ...],
-                                            cur_offset_input[:, 0:3, ...]), dim=1),
-                                  time_offsets=time_offsets[::-1])
-                        ]
+                        self.forward_flownets(self.flownets,
+                                              torch.cat((cur_offset_input[:, 3:, ...],
+                                                         cur_offset_input[:, 0:3, ...]), dim=1),
+                                              time_offsets=time_offsets[::-1])
+                    ]
 
         torch.cuda.synchronize() #synchronize s1 and s2
 
-        cur_offset_outputs = [
-            self.FlowProject(cur_offset_outputs[0],depth_inv[0]),
-            self.FlowProject(cur_offset_outputs[1],depth_inv[1])
-                ]
+        cur_offset_outputs = \
+            [
+                self.FlowProject(cur_offset_outputs[0],depth_inv[0]),
+                self.FlowProject(cur_offset_outputs[1],depth_inv[1])
+            ]
 
         '''
             STEP 3.4: perform the frame interpolation process 
         '''
         cur_offset_output = [cur_offset_outputs[0][0], cur_offset_outputs[1][0]]
-        ctx0,ctx2 = self.FilterInterpolate_ctx(cur_ctx_output[0],cur_ctx_output[1],
-                                                   cur_offset_output,cur_filter_output)
+        ctx0, ctx2 = self.FilterInterpolate_ctx(cur_ctx_output[0],
+                                                cur_ctx_output[1],
+                                                cur_offset_output,
+                                                cur_filter_output)
 
-        cur_output,ref0,ref2 = self.FilterInterpolate(cur_input_0, cur_input_2,cur_offset_output,cur_filter_output,self.filter_size**2)
+        cur_output, ref0, ref2 = self.FilterInterpolate(cur_input_0,
+                                                        cur_input_2,
+                                                        cur_offset_output,
+                                                        cur_filter_output,
+                                                        self.filter_size**2)
 
-        rectify_input = torch.cat((cur_output,ref0,ref2,
-                                    cur_offset_output[0],cur_offset_output[1],
-                                    cur_filter_output[0],cur_filter_output[1],
-                                    ctx0,ctx2
-        ),dim =1)
+        rectify_input = torch.cat((cur_output,
+                                   ref0,
+                                   ref2,
+                                   cur_offset_output[0],
+                                   cur_offset_output[1],
+                                   cur_filter_output[0],
+                                   cur_filter_output[1],
+                                   ctx0,
+                                   ctx2),
+                                  dim=1)
         cur_output_rectified = self.rectifyNet(rectify_input) + cur_output
 
         '''
             STEP 3.5: for training phase, we collect the variables to be penalized.
         '''
-        if self.training == True:
-                losses +=[cur_output - cur_input_1]
+        if self.training:
+                losses += [cur_output - cur_input_1]
                 losses += [cur_output_rectified - cur_input_1]                
-                offsets +=[cur_offset_output]
+                offsets += [cur_offset_output]
                 filters += [cur_filter_output]
         '''
             STEP 4: return the results
         '''
-        if self.training == True:
+        if self.training:
             # if in the training phase, we output the losses to be minimized.
             # return losses, loss_occlusion
             return losses, offsets,filters,occlusions
         else:
             cur_outputs = [cur_output,cur_output_rectified]
-            return cur_outputs,cur_offset_output,cur_filter_output
+            return cur_outputs, cur_offset_output, cur_filter_output
 
-    def forward_flownets(self, model, input, time_offsets = None):
-
-        if time_offsets == None :
+    def forward_flownets(self, model, input, time_offsets=None):
+        if time_offsets is None :
             time_offsets = [0.5]
         elif type(time_offsets) == float:
             time_offsets = [time_offsets]
@@ -204,8 +219,8 @@ class DAIN(torch.nn.Module):
             pass
         temp = model(input)  # this is a single direction motion results, but not a bidirectional one
 
-        temps = [self.div_flow * temp * time_offset for time_offset in time_offsets]# single direction to bidirection should haven it.
-        temps = [nn.Upsample(scale_factor=4, mode='bilinear')(temp)  for temp in temps]# nearest interpolation won't be better i think
+        temps = [self.div_flow * temp * time_offset for time_offset in time_offsets]  # single direction to bidirection should haven it.
+        temps = [nn.Upsample(scale_factor=4, mode='bilinear')(temp)  for temp in temps]  # nearest interpolation won't be better i think
         return temps
 
     '''keep this function'''
@@ -293,9 +308,9 @@ class DAIN(torch.nn.Module):
     @staticmethod
     def FlowProject(inputs, depth = None):
         if depth is not None:
-            outputs = [DepthFlowProjectionModule(input.requires_grad)(input,depth) for input in inputs]
+            outputs = [DepthFlowProjectionModule(input.requires_grad)(input, depth) for input in inputs]
         else:
-            outputs = [ FlowProjectionModule(input.requires_grad)(input) for input in inputs]
+            outputs = [FlowProjectionModule(input.requires_grad)(input) for input in inputs]
         return outputs
 
 
@@ -304,14 +319,15 @@ class DAIN(torch.nn.Module):
     def FilterInterpolate_ctx(ctx0,ctx2,offset,filter):
         ##TODO: which way should I choose
 
-        ctx0_offset = FilterInterpolationModule()(ctx0,offset[0].detach(),filter[0].detach())
-        ctx2_offset = FilterInterpolationModule()(ctx2,offset[1].detach(),filter[1].detach())
+        ctx0_offset = FilterInterpolationModule()(ctx0, offset[0].detach(), filter[0].detach())
+        ctx2_offset = FilterInterpolationModule()(ctx2, offset[1].detach(), filter[1].detach())
 
         return ctx0_offset, ctx2_offset
         # ctx0_offset = FilterInterpolationModule()(ctx0.detach(), offset[0], filter[0])
         # ctx2_offset = FilterInterpolationModule()(ctx2.detach(), offset[1], filter[1])
         #
         # return ctx0_offset, ctx2_offset
+
     '''Keep this function'''
     @staticmethod
     def FilterInterpolate(ref0, ref2, offset, filter,filter_size2):
