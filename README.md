@@ -17,6 +17,7 @@ This work is developed based on our TPAMI work [MEMC-Net](https://github.com/bao
 1. [Citation](#citation)
 1. [Requirements and Dependencies](#requirements-and-dependencies)
 1. [Installation](#installation)
+1. [Setup Video Processing (new)](#setup-video-processing-(new))
 1. [Testing Pre-trained Models](#testing-pre-trained-models)
 1. [Downloading Results](#downloading-results)
 1. [Slow-motion Generation](#slow-motion-generation)
@@ -113,18 +114,20 @@ Python (We test with Python = 3.6.8 in Anaconda3 = 4.1.1)
 
 Cuda & Cudnn for Anaconda (We test with Cuda = 9.0 and Cudnn = 7.0) 
 
-    $ sudo dpkg -i cuda-repo-ubuntu1604_9.0.176-1_amd64.debwget http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64/cuda-repo-ubuntu1604_9.0.176-1_amd64.deb
+    $ wget http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64/cuda-repo-ubuntu1604_9.0.176-1_amd64.deb
     $ wget http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64/cuda-repo-ubuntu1604_9.0.176-1_amd64.deb 
     $ wget http://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1604/x86_64/libcudnn7_7.0.5.15-1+cuda9.0_amd64.deb 
     $ wget http://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1604/x86_64/libcudnn7-dev_7.0.5.15-1+cuda9.0_amd64.deb 
     $ wget http://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1604/x86_64/libnccl2_2.1.4-1+cuda9.0_amd64.deb 
     $ wget http://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1604/x86_64/libnccl-dev_2.1.4-1+cuda9.0_amd64.deb
+    $ sudo apt-key adv --fetch-keys http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64/7fa2af80.pub
     $ sudo dpkg -i cuda-repo-ubuntu1604_9.0.176-1_amd64.deb 
     $ sudo dpkg -i libcudnn7_7.0.5.15-1+cuda9.0_amd64.deb 
     $ sudo dpkg -i libcudnn7-dev_7.0.5.15-1+cuda9.0_amd64.deb 
     $ sudo dpkg -i libnccl2_2.1.4-1+cuda9.0_amd64.deb 
     $ sudo dpkg -i libnccl-dev_2.1.4-1+cuda9.0_amd64.deb 
     $ sudo apt-get update
+    $ # might need to do this instead if keys weren't retrieved: sudo apt-get --allow-unauthenticated update
     $ sudo apt-get install cuda=9.0.176-1
     $ sudo apt-get install libcudnn7-dev
     $ sudo apt-get install libnccl-dev
@@ -144,22 +147,19 @@ PyTorch (The customized depth-aware flow projection and other layers require ATe
 GCC (Compiling PyTorch 1.0.0 extension files (.c/.cu) requires gcc = 4.9.1 and nvcc = 9.0 compilers)
 
     $ sudo vi /etc/apt/sources.list
-    $ Add at bottom of sources.list:
+    $ # Add at bottom of sources.list:
     $ deb http://cz.archive.ubuntu.com/ubuntu xenial main universe
     $ deb http://cz.archive.ubuntu.com/ubuntu xenial main universe
-    $ sudo apt-get update
+    
+	$ sudo apt-get update
     $ sudo apt-get install gcc-4.9 g++-4.9
 
-NVIDIA GPU (We use Titan X (Pascal) with compute = 6.1, but we support compute_50/52/60/61 devices, should you have devices with higher compute capability, please revise [this](https://github.com/baowenbo/DAIN/blob/master/my_package/DepthFlowProjection/setup.py))
+NVIDIA GPU (We use Titan X (Pascal) with compute = 6.1, but we support compute_50/52/60/61 devices, should you have devices with higher compute capability, please revise [this](my_package/DepthFlowProjection/setup.py))
 
 ### Installation
 Download repository:
 
-    $ git clone https://github.com/baowenbo/DAIN.git
-
-Before building Pytorch extensions, be sure you have `pytorch >= 1.0.0`:
-    
-    $ python -c "import torch; print(torch.__version__)"
+    $ git clone https://github.com/e2m32/DAIN.git
     
 ### Set up anaconda environment
 
@@ -175,27 +175,44 @@ or
 
     $ source activate dain_pytorch1.0.0
 
+Before building Pytorch extensions, be sure you have pytorch 1.0.0:
+    
+    $ python -c "import torch; print(torch.__version__)"
+
+If not on pytorch 1.0.0, try again ([ref](https://pytorch.org/get-started/previous-versions/ "ref")):
+
+	$ conda install pytorch==1.0.0 torchvision==0.2.1 cuda90 -c pytorch 
 
 Generate our PyTorch extensions:
     
-    $ cd DAIN
-    $ cd my_package 
+    $ cd ~/DAIN/my_package/
     $ ./build.sh
 
 Generate the Correlation package required by [PWCNet](https://github.com/NVlabs/PWC-Net/tree/master/PyTorch/external_packages/correlation-pytorch-master):
     
-    $ cd ../PWCNet/correlation_package_pytorch1_0
+    $ cd ~/DAIN/PWCNet/correlation_package_pytorch1_0
     $ ./build.sh
+
+### Setup Video Processing (new)
+Download pretrained models (shouldn't need to do this, should have been included in `git clone`):
+
+    $ cd model_weights
+    $ wget http://vllab1.ucmerced.edu/~wenbobao/DAIN/best.pth
+Run your video. Optionally you can put `CUDA_VISIBLE_DEVICES=0` in front of the python call to force CUDA to use GPU 0. ([ref](https://devblogs.nvidia.com/cuda-pro-tip-control-gpu-visibility-cuda_visible_devices/)) To see available GPUs, use this command `nvidia-smi`
+
+	$ cd ~/DAIN
+	$ # The following arguments are optional	
+	$ python dain.py <inputvideo> <outputvideo> <num passes>
 
 
 ### Testing Pre-trained Models
 Make model weights dir and Middlebury dataset dir:
 
-    $ cd DAIN
+    $ cd ~/DAIN
     $ mkdir model_weights
     $ mkdir MiddleBurySet
     
-Download pretrained models, 
+Download pretrained models (shouldn't need to do this, should have been included in `git clone`):
 
     $ cd model_weights
     $ wget http://vllab1.ucmerced.edu/~wenbobao/DAIN/best.pth
@@ -209,15 +226,18 @@ and Middlebury dataset:
     $ unzip other-gt-interp.zip
     $ cd ..
 
-We are good to go by:
+We are good to test by:
 
     $ CUDA_VISIBLE_DEVICES=0 python demo_MiddleBury.py
 
 The interpolated results are under `MiddleBurySet/other-result-author/[random number]/`, where the `random number` is used to distinguish different runnings. The demo only interpolates one image per example.
 
+### Running your own videos
+
+
 ### Downloading Results
 Our DAIN model achieves the state-of-the-art performance on the UCF101, Vimeo90K, and Middlebury ([*eval*](http://vision.middlebury.edu/flow/eval/results/results-n1.php) and *other*).
-Dowload our interpolated results with:
+Download our interpolated results with:
     
     $ wget http://vllab1.ucmerced.edu/~wenbobao/DAIN/UCF101_DAIN.zip
     $ wget http://vllab1.ucmerced.edu/~wenbobao/DAIN/Vimeo90K_interp_DAIN.zip

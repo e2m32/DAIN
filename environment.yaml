@@ -85,7 +85,7 @@ dependencies:
   - xz=5.2.4=h14c3975_4
   - zlib=1.2.11=h7b6447c_3
   - zstd=1.3.7=h0b5b093_0
-  - pytorch=1.0.1=py3.6_cuda9.0.176_cudnn7.4.2_2
+  - pytorch=1.0.0=py3.6_cuda9.0.176_cudnn7.4.2_2
   - torchvision=0.2.1=py_2
   - cloog=0.18.1=1
   - gcc_49=4.9.1=6
@@ -102,4 +102,6 @@ dependencies:
     - separableconv-cuda==0.0.0
     - separableconvflow-cuda==0.0.0
     - torch==1.0.1.post2
+    - opencv-python==4.2.0.32
+    - progressbar2==3.50.0
 prefix: ~/anaconda3/envs/dain_pytorch1.0.0
